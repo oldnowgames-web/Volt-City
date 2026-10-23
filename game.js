@@ -3140,6 +3140,7 @@ function updateCamera(dt){
 
 /* ===================== MINIMAPA ===================== */
 const miniCv=document.getElementById("mini"), mctx=miniCv.getContext("2d");
+const MK=Math.min(2,window.devicePixelRatio||1); miniCv.width=miniCv.height=Math.round(176*MK);
 const mapSt=document.createElement("canvas"); mapSt.width=1200; mapSt.height=800; {
   const c=mapSt.getContext("2d"); c.fillStyle="#102018"; c.fillRect(0,0,1200,800);
   c.fillStyle="#3b4048"; for(const a of lines){ c.fillRect(a+400-8,0,16,800); c.fillRect(0,a+400-8,800,16); }
@@ -3150,7 +3151,7 @@ const mapSt=document.createElement("canvas"); mapSt.width=1200; mapSt.height=800
   c.strokeStyle="#e3b724"; c.lineWidth=1; for(const a of lines){ c.beginPath(); c.moveTo(a+400,0); c.lineTo(a+400,800); c.moveTo(0,a+400); c.lineTo(800,a+400); c.stroke(); }
 }
 function drawMini(){
-  const W_=miniCv.width, H_=miniCv.height; mctx.clearRect(0,0,W_,H_); mctx.save(); mctx.translate(W_/2,H_/2); mctx.rotate(P.h); mctx.scale(.62,.62);
+  const W_=176, H_=176; mctx.setTransform(MK,0,0,MK,0,0); mctx.clearRect(0,0,W_,H_); mctx.save(); mctx.translate(W_/2,H_/2); mctx.rotate(P.h); mctx.scale(.62,.62);
   mctx.drawImage(mapSt,-(P.x+400),-(P.z+400));
   mctx.fillStyle="#ff5d6c"; for(const c of cars){ const p=carPos(c); mctx.fillRect(p[0]-P.x-2,p[1]-P.z-2,4,4); }
   F2.mini(mctx);
@@ -3166,7 +3167,8 @@ window.addEventListener("resize",()=>{ camera.aspect=window.innerWidth/Math.max(
 let prev=performance.now(), first=true, frame=0, fpsAcc=0, fpsN=0, curPR=renderer.getPixelRatio();
 /* ===================== ESTADO / MENU / OPCOES ===================== */
 const QF={far:1,pr:1};
-const QS={low:{pr:.75,shadow:false,far:.6},med:{pr:1,shadow:true,far:.85},high:{pr:isMobile?1.25:1.5,shadow:true,far:1}};
+const DPR=window.devicePixelRatio||1;
+const QS={low:{pr:isMobile?Math.min(DPR,1):.75,shadow:false,far:.6},med:{pr:isMobile?Math.min(DPR,1.75):1,shadow:true,far:.85},high:{pr:isMobile?Math.min(DPR,2.5):1.5,shadow:true,far:1}};
 const OPT=Object.assign({music:.5,sfx:.8,quality:isMobile?"med":"high",time:0,mini:true,vib:true,hints:true},(()=>{ try{ return JSON.parse(localStorage.getItem("volt_opts")||"{}"); }catch(e){ return {}; } })());
 const saveOpt=()=>{ try{ localStorage.setItem("volt_opts",JSON.stringify(OPT)); }catch(e){} };
 const $=id=>document.getElementById(id);
@@ -3236,7 +3238,7 @@ function animate(now){
   for(const f of FARM){ const dd=f.d*QF.far; f.m.visible=(f.x-P.x)*(f.x-P.x)+(f.z-P.z)*(f.z-P.z)<dd*dd; }
   for(const c of cars){ const pp=carPos(c); c.g.visible=Math.abs(pp[0]-P.x)<190*QF.far&&Math.abs(pp[1]-P.z)<190*QF.far; }
   for(const p of peds){ p.g.visible=Math.abs(p.g.position.x-P.x)<130*QF.far&&Math.abs(p.g.position.z-P.z)<130*QF.far; }
-  fpsAcc+=dt; fpsN++; if(fpsAcc>2.5){ const fps=fpsN/fpsAcc; fpsAcc=0; fpsN=0; if(fps<42&&gameState==="play"&&curPR>QF.pr*.6){ curPR=Math.max(QF.pr*.6,curPR-.15); renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); } }
+  fpsAcc+=dt; fpsN++; if(fpsAcc>2.5){ const fps=fpsN/fpsAcc; fpsAcc=0; fpsN=0; if(fps<42&&gameState==="play"&&curPR>QF.pr*.6){ curPR=Math.max(QF.pr*.6,curPR-.15); renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); } else if(fps>57&&gameState==="play"&&curPR<QF.pr-.01){ curPR=Math.min(QF.pr,curPR+.1); renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); } }
   sky.position.copy(camera.position); stars.position.copy(camera.position); 
   for(const c of clouds){ /* nuvens ficam relativas ao mundo */ }
   sun.position.set(P.x+cur.dir.x*140,cur.dir.y*140+P.y,P.z+cur.dir.z*140); sun.target.position.set(P.x,0,P.z);
