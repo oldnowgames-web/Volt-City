@@ -1628,7 +1628,7 @@ const lerp = (a,b,t) => a + (b-a)*t;
 
 /* ===================== RENDERER / CENA ===================== */
 const viewer = document.getElementById("viewer");
-const renderer = new THREE.WebGLRenderer({ antialias: !isMobile, powerPreference: "high-performance" });
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile||(window.devicePixelRatio||1)<2, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -3090,6 +3090,7 @@ o.tick=(dt,t)=>{
 o.mini=c=>{ const f=(x,z,r,col)=>{ const dx=x-P.x, dz=z-P.z; if(dx*dx+dz*dz>25000) return; c.fillStyle=col; c.beginPath(); c.arc(dx,dz,r,0,6.283); c.fill(); };
   for(const k of coins) if(k.t<=0) f(k.x,k.z,2,"#ffd23f"); for(const s of ST) f(s[0],s[1],4.5,"#3dff9a"); for(const r of RP) f(r.x,r.z,3.5,"#ff8a2a"); if(rc>=0) f(RT[rc][0],RT[rc][1],7,"#fff"); };
 // ---- menu: garagem e conquistas ----
+let dEl=null; o.dbg=(fps,pr,qp)=>{ if(dEl&&S.dbg){ const cv=renderer.domElement; dEl.textContent="FPS "+fps.toFixed(0)+" · escala "+pr.toFixed(2)+"/"+qp.toFixed(2)+" · render "+cv.width+"x"+cv.height+" · tela "+window.innerWidth+"x"+window.innerHeight+" @"+(window.devicePixelRatio||1); } };
 o.initUI=()=>{
   const box=document.querySelector(".menuBox"), main=E("menuMain");
   const mk=(id,txt)=>{ const b=document.createElement("button"); b.className="btn"; b.id=id; b.textContent=txt; return b; };
@@ -3110,6 +3111,9 @@ o.initUI=()=>{
   bA.onclick=()=>{ let h='<h2>CONQUISTAS</h2><div class="list">'; for(const a of AC) h+='<p>'+(S.ach[a[0]]?"✅":"⬜")+' <b>'+a[1]+'</b> — '+a[2]+'</p>'; h+='<p>Recorde da corrida: '+(S.best?S.best.toFixed(1)+"s":"—")+'</p></div><button class="btn bk">VOLTAR</button>'; pa.innerHTML=h; pa.querySelector(".bk").onclick=()=>showPanel("menuMain"); showPanel("panelAch"); };
   const tb=E("tTop"); for(const [id,txt,fn] of [["tRace","🏁",()=>o.race()],["tRain","☂",()=>o.toggleRain()]]){ const b=document.createElement("button"); b.id=id; b.textContent=txt; b.addEventListener("pointerdown",e=>{ fn(); e.preventDefault(); }); tb.appendChild(b); }
   { const po=E("panelOpts"), row=document.createElement("label"); row.className="row chk"; row.innerHTML='Ciclo dia/noite automático <input id="optAuto" type="checkbox">'; po.insertBefore(row,po.querySelector(".back")); const ck=row.querySelector("input"); ck.checked=!!S.auto; ck.onchange=()=>{ S.auto=ck.checked; save(); }; }
+  { const po=E("panelOpts"), row=document.createElement("label"); row.className="row chk"; row.innerHTML='Mostrar FPS e resolução <input type="checkbox">'; po.insertBefore(row,po.querySelector(".back"));
+    const d=document.createElement("div"); d.style.cssText="position:fixed;z-index:9;left:50%;bottom:4px;transform:translateX(-50%);font:10px monospace;color:#fff;background:rgba(0,0,0,.55);padding:2px 8px;border-radius:6px;pointer-events:none;display:"+(S.dbg?"block":"none"); document.body.appendChild(d); dEl=d;
+    const ck=row.querySelector("input"); ck.checked=!!S.dbg; ck.onchange=()=>{ S.dbg=ck.checked; d.style.display=S.dbg?"block":"none"; save(); }; }
   { const jb=document.createElement("button"); jb.id="tJump"; jb.className="rb"; jb.textContent="PULAR"; jb.addEventListener("pointerdown",e=>{ jb.classList.add("down"); o.jump(); e.preventDefault(); }); for(const ev of ["pointerup","pointercancel"]) jb.addEventListener(ev,()=>jb.classList.remove("down")); E("tBtns").appendChild(jb); }
 };
 return o;
@@ -3166,15 +3170,15 @@ const speedEl=document.getElementById("speed"), barEl=document.getElementById("b
 window.addEventListener("resize",()=>{ camera.aspect=window.innerWidth/Math.max(1,window.innerHeight); camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); });
 let prev=performance.now(), first=true, frame=0, fpsAcc=0, fpsN=0, curPR=renderer.getPixelRatio();
 /* ===================== ESTADO / MENU / OPCOES ===================== */
-const QF={far:1,pr:1};
+const QF={far:1,pr:1,fl:.6};
 const DPR=window.devicePixelRatio||1;
-const QS={low:{pr:isMobile?Math.min(DPR,1):.75,shadow:false,far:.6},med:{pr:isMobile?Math.min(DPR,1.75):1,shadow:true,far:.85},high:{pr:isMobile?Math.min(DPR,2.5):1.5,shadow:true,far:1}};
+const QS={low:{pr:isMobile?Math.min(DPR,1):.75,shadow:false,far:.6,fl:.6},med:{pr:isMobile?Math.min(DPR,2):1,shadow:!isMobile,far:.85,fl:.75},high:{pr:isMobile?Math.min(DPR,2.5):1.5,shadow:true,far:1,fl:.8},ultra:{pr:isMobile?Math.min(DPR,3):2,shadow:true,far:1,fl:1}};
 const OPT=Object.assign({music:.5,sfx:.8,quality:isMobile?"med":"high",time:0,mini:true,vib:true,hints:true},(()=>{ try{ return JSON.parse(localStorage.getItem("volt_opts")||"{}"); }catch(e){ return {}; } })());
 const saveOpt=()=>{ try{ localStorage.setItem("volt_opts",JSON.stringify(OPT)); }catch(e){} };
 const $=id=>document.getElementById(id);
 let gameState="menu", tw=0, lastShake=0, wasWater=false, wasBoost=false, modelsOk=!!window.__modelsReady;
 function vib(ms){ if(OPT.vib&&navigator.vibrate){ try{ navigator.vibrate(ms); }catch(e){} } }
-function setQuality(q){ const Q=QS[q]||QS.med; OPT.quality=q; QF.far=Q.far; QF.pr=Q.pr; curPR=Q.pr; renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); sun.castShadow=Q.shadow; }
+function setQuality(q){ const Q=QS[q]||QS.med; OPT.quality=q; QF.far=Q.far; QF.pr=Q.pr; QF.fl=Q.fl; curPR=Q.pr; renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); sun.castShadow=Q.shadow; }
 function setTime(i){ stateIdx=i; setStateInstant(i); $("modeLabel").textContent=STATES[i].name; OPT.time=i; }
 function showPanel(id){ for(const p of document.querySelectorAll("#menu .panel")) p.classList.toggle("active",p.id===id); }
 function setState(s){
@@ -3238,7 +3242,7 @@ function animate(now){
   for(const f of FARM){ const dd=f.d*QF.far; f.m.visible=(f.x-P.x)*(f.x-P.x)+(f.z-P.z)*(f.z-P.z)<dd*dd; }
   for(const c of cars){ const pp=carPos(c); c.g.visible=Math.abs(pp[0]-P.x)<190*QF.far&&Math.abs(pp[1]-P.z)<190*QF.far; }
   for(const p of peds){ p.g.visible=Math.abs(p.g.position.x-P.x)<130*QF.far&&Math.abs(p.g.position.z-P.z)<130*QF.far; }
-  fpsAcc+=dt; fpsN++; if(fpsAcc>2.5){ const fps=fpsN/fpsAcc; fpsAcc=0; fpsN=0; if(fps<42&&gameState==="play"&&curPR>QF.pr*.6){ curPR=Math.max(QF.pr*.6,curPR-.15); renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); } else if(fps>57&&gameState==="play"&&curPR<QF.pr-.01){ curPR=Math.min(QF.pr,curPR+.1); renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); } }
+  fpsAcc+=dt; fpsN++; if(fpsAcc>2.5){ const fps=fpsN/fpsAcc; fpsAcc=0; fpsN=0; F2.dbg(fps,curPR,QF.pr); if(fps<42&&gameState==="play"&&curPR>QF.pr*QF.fl){ curPR=Math.max(QF.pr*QF.fl,curPR-.15); renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); } else if(fps>57&&gameState==="play"&&curPR<QF.pr-.01){ curPR=Math.min(QF.pr,curPR+.1); renderer.setPixelRatio(curPR); renderer.setSize(window.innerWidth,window.innerHeight); } }
   sky.position.copy(camera.position); stars.position.copy(camera.position); 
   for(const c of clouds){ /* nuvens ficam relativas ao mundo */ }
   sun.position.set(P.x+cur.dir.x*140,cur.dir.y*140+P.y,P.z+cur.dir.z*140); sun.target.position.set(P.x,0,P.z);
